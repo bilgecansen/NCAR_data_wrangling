@@ -8,7 +8,7 @@ netcdf_hist_dir <- "/gpfs/scratch/bsen/NCAR_coupled_historic_NetCDF"
 # Ensemble member directories for NetCDF files, they should be the same for both netcdf directories
 member_names <- list.files(netcdf_fore_dir)
 
-m_hist <- matrix(nrow = length(member_names), ncol = 12)
+m_hist <- matrix(nrow = length(member_names), ncol = 13)
 for (i in 1:length(member_names)) {
   print(i)
   netcdf_names <- list.files(paste(netcdf_hist_dir, member_names[i], sep = "/"))
@@ -21,7 +21,7 @@ for (i in 1:length(member_names)) {
 
 rownames(m_hist) <- member_names
 
-m_fore <- matrix(nrow = length(member_names), ncol = 12)
+m_fore <- matrix(nrow = length(member_names), ncol = 13)
 for (i in 1:length(member_names)) {
   print(i)
   netcdf_names <- list.files(paste(netcdf_fore_dir, member_names[i], sep = "/"))
