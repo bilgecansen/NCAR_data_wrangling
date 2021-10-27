@@ -14,7 +14,7 @@ for (i in 1:length(member_names)) {
   
   for (h in 1:length(netcdf_names)) {
     ncin <- ncdf4::nc_open(paste(netcdf_hist_dir, member_names[i], netcdf_names[h], sep = "/"))
-    m_hist[i,h] <- ncin$var$time_bound$varsize[2] 
+    m_hist[i,h] <- ncin$dim$time$len
   }
 }
 
@@ -26,7 +26,7 @@ for (i in 1:length(member_names)) {
   
   for (h in 1:length(netcdf_names)) {
     ncin <- ncdf4::nc_open(paste(netcdf_fore_dir, member_names[i], netcdf_names[h], sep = "/"))
-    m_fore[i,h] <- ncin$var$time_bound$varsize[2] 
+    m_fore[i,h] <- ncin$dim$time$len 
   }
 }
 
