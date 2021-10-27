@@ -7,7 +7,6 @@ library(magrittr)
 library(stringr)
 library(purrr)
 library(foreach)
-library(tidyverse)
 library(doSNOW)
 
 source("functions.R")
@@ -15,8 +14,8 @@ source("functions.R")
 # Directories setup for seawulf -------------------------------------------
 
 # Main directories where NetCDF files reside
-netcdf_fore_dir <- "NCAR_coupled_forecast_NetCDF"
-netcdf_hist_dir <- "NCAR_coupled_historic_NetCDF"
+netcdf_fore_dir <- "/gpfs/scratch/bsen/NCAR_coupled_forecast_NetCDF"
+netcdf_hist_dir <- "/gpfs/scratch/bsen/NCAR_coupled_historic_NetCDF"
 
 # The main directories where raster files will be written to
 raster_fore_dir <- "NCAR_coupled_forecast_raster"
