@@ -10,6 +10,7 @@ member_names <- list.files(netcdf_fore_dir)
 
 m_hist <- matrix(nrow = length(member_names), ncol = 12)
 for (i in 1:length(member_names)) {
+  print(i)
   netcdf_names <- list.files(paste(netcdf_hist_dir, member_names[i], sep = "/"))
   
   for (h in 1:length(netcdf_names)) {
@@ -22,6 +23,7 @@ rownames(m_hist) <- member_names
 
 m_fore <- matrix(nrow = length(member_names), ncol = 12)
 for (i in 1:length(member_names)) {
+  print(i)
   netcdf_names <- list.files(paste(netcdf_fore_dir, member_names[i], sep = "/"))
   
   for (h in 1:length(netcdf_names)) {
