@@ -18,8 +18,8 @@ netcdf_fore_dir <- "/gpfs/scratch/bsen/NCAR_coupled_forecast_NetCDF"
 netcdf_hist_dir <- "/gpfs/scratch/bsen/NCAR_coupled_historic_NetCDF"
 
 # The main directories where raster files will be written to
-raster_fore_dir <- "NCAR_coupled_forecast_raster"
-raster_hist_dir <- "NCAR_coupled_historic_raster"
+raster_fore_dir <- "/gpfs/scratch/bsen/NCAR_coupled_forecast_raster"
+raster_hist_dir <- "/gpfs/scratch/bsen/NCAR_coupled_historic_raster"
 
 # Ensemble member directories for NetCDF files, they should be the same for both netcdf directories
 member_names <- list.files(netcdf_fore_dir)
