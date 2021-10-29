@@ -14,9 +14,15 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
     idx <- str_which(netcdf_names, var_name)
     netcdf <- netcdf_names[idx]
     
+    full_name <- str_split(netcdf, ".nc", 2, simplify = T)[1]
+    file_name <- paste(raster_dir, full_name, sep = "/") %>%
+      paste(., "grd", sep = ".")
+    
     if (skip == T) {
-      if (file.exists((paste(netcdf_dir, netcdf, sep = "/"))))
-        return(paste("raster for", netcdf, "already exists", sep = " "))
+      if (file.exists(file_name)) {
+        print(paste(file_name, "already exists", sep = " "))
+        return(NULL)
+      }
     } 
     
     ncin <- ncdf4::nc_open(paste(netcdf_dir, netcdf, sep = "/"))
@@ -28,9 +34,17 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
     idx <- str_which(netcdf_names, var_name)
     netcdf <- netcdf_names[idx]
     
+    full_name <- str_split(netcdf, ".nc", 2, simplify = T)[1]
+    folder_name <- paste(raster_dir, member_name, sep = "/")
+    if (!member_name %in% list.files(raster_dir)) dir.create(folder_name)
+    file_name <- paste(folder_name, full_name, sep = "/") %>%
+      paste(., "grd", sep = ".")
+    
     if (skip == T) {
-      if (file.exists((paste(netcdf_dir, netcdf, sep = "/"))))
-        return(paste("raster for", netcdf, "already exists", sep = " "))
+      if (file.exists(file_name)) {
+        print(paste(file_name, "already exists", sep = " "))
+        return(NULL)
+      }
     }
     
     ncin <- ncdf4::nc_open(paste(netcdf_dir, member_name, netcdf, sep = "/"))
@@ -82,23 +96,6 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
     
   }
   r_brick <- do.call(brick, r)
-  
-  full_name <- str_split(netcdf, ".nc", 2, simplify = T)[1]
-  
-  if (is.null(member_name)) {
-    
-    file_name <- paste(raster_dir, full_name, sep = "/") %>%
-      paste(., "grd", sep = ".")
-  
-  } else {
-    
-    folder_name <- paste(raster_dir, member_name, sep = "/")
-    
-    if (!member_name %in% list.files(raster_dir)) dir.create(folder_name)
-    
-    file_name <- paste(folder_name, full_name, sep = "/") %>%
-      paste(., "grd", sep = ".")
-  }
   
   writeRaster(r_brick, filename = file_name, overwrite = T)
   
