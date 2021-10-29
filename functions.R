@@ -5,7 +5,7 @@
 
 # Raster transformation for data with atmospheric forcing
 transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster_dir, long_name, lat_name, 
-                                depth, integral, depth_count = NA, time_steps) {
+                                depth, integral, depth_count = NA, time_steps, skip = T) {
   
   if (is.null(member_name)) {
     
@@ -13,6 +13,11 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
     
     idx <- str_which(netcdf_names, var_name)
     netcdf <- netcdf_names[idx]
+    
+    if (skip == T) {
+      if (file.exists((paste(netcdf_dir, netcdf, sep = "/"))))
+        return(paste("raster for", netcdf, "already exists", sep = " "))
+    } 
     
     ncin <- ncdf4::nc_open(paste(netcdf_dir, netcdf, sep = "/"))
     
@@ -22,6 +27,11 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
     
     idx <- str_which(netcdf_names, var_name)
     netcdf <- netcdf_names[idx]
+    
+    if (skip == T) {
+      if (file.exists((paste(netcdf_dir, netcdf, sep = "/"))))
+        return(paste("raster for", netcdf, "already exists", sep = " "))
+    }
     
     ncin <- ncdf4::nc_open(paste(netcdf_dir, member_name, netcdf, sep = "/"))
     
