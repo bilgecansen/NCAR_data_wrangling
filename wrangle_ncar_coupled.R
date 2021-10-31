@@ -192,7 +192,7 @@ d <- which(day == 15)
 D <- -23.45*cos(((360/365)*(d + 10))*pi/180)
 tw <- D-96
 
-cl <- makeCluster(6, types = "SOCK")
+cl <- makeCluster(28, types = "SOCK")
 registerDoSNOW(cl)
 
 pack <- c("raster", "dplyr", "magrittr", "stringr", "tibble", "tidyr" )
@@ -272,8 +272,8 @@ saveRDS(env_dat_100, file = "data_coupled_env_100km_adpe.rds")
 
 # Summarize env data for forecasts ----------------------------------------
 
-data_rf_1500 <- foreach(i = 1:length(env_dat_1500)) %do% summarize_env(env_dat_1500[[i]], cores = 6)
-data_rf_100 <- foreach(i = 1:length(env_dat_100)) %do% summarize_env(env_dat_100[[i]], cores = 6)
+data_rf_1500 <- foreach(i = 1:length(env_dat_1500)) %do% summarize_env(env_dat_1500[[i]], cores = 28)
+data_rf_100 <- foreach(i = 1:length(env_dat_100)) %do% summarize_env(env_dat_100[[i]], cores = 28)
 
 # Standardize data with the mean and sd of 1958-2017 period
 mean_1500 <- foreach(i = 1:length(data_rf_1500)) %do% {
@@ -345,11 +345,11 @@ data_std_rf_100 <-
   }
 
 # Add lags
-data_rf_1500_lag <- foreach(i = 1:length(data_rf_1500)) %do% add_lags(data_rf_1500[[i]], cores = 6)
-data_rf_100_lag <- foreach(i = 1:length(data_rf_100)) %do% add_lags(data_rf_100[[i]], cores = 6)
+data_rf_1500_lag <- foreach(i = 1:length(data_rf_1500)) %do% add_lags(data_rf_1500[[i]], cores = 28)
+data_rf_100_lag <- foreach(i = 1:length(data_rf_100)) %do% add_lags(data_rf_100[[i]], cores = 28)
 
-data_std_rf_1500_lag <- foreach(i = 1:length(data_std_rf_1500)) %do% add_lags(data_std_rf_1500[[i]], cores = 6)
-data_std_rf_100_lag <- foreach(i = 1:length(data_std_rf_100)) %do% add_lags(data_std_rf_100[[i]], cores = 6)
+data_std_rf_1500_lag <- foreach(i = 1:length(data_std_rf_1500)) %do% add_lags(data_std_rf_1500[[i]], cores = 28)
+data_std_rf_100_lag <- foreach(i = 1:length(data_std_rf_100)) %do% add_lags(data_std_rf_100[[i]], cores = 28)
 
 saveRDS(data_rf_1500_lag, "data_coupled_rf_1500km_adpe.rds")
 saveRDS(data_rf_100_lag, "data_coupled_rf_100km_adpe.rds")
