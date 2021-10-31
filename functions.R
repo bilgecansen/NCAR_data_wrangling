@@ -120,10 +120,10 @@ extract_env <- function(raster_dir, raster_name, member_name = NULL, data_poly, 
   } else {
     
     if (str_detect(member_name, "_")) {
-      member_name2 <- str_split(member_name, "_")[[1]][1]
+      member_name <- str_split(member_name, "_")[[1]][1]
     }
     
-    x <- paste("h.cmip6.", member_name2, ".", sep = "")
+    x <- paste("h.cmip6.", member_name, ".", sep = "")
     
     var_name <- str_split(raster_name, x, 2, simplify = T)[2] %>%
       str_split(., "\\.", 2, simplify = T) %>%
