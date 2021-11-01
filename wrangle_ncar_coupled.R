@@ -8,6 +8,7 @@ library(stringr)
 library(purrr)
 library(foreach)
 library(doSNOW)
+library(dplyr)
 
 source("functions.R")
 
