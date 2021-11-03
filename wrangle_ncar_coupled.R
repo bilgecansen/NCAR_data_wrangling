@@ -304,7 +304,7 @@ sd_100 <- foreach(i = 1:length(data_rf_100)) %do% {
 sites <- unique(data_rf_1500[[1]]$site_id)
 
 data_std_rf_1500 <- 
-  foreach(i = length(data_rf_1500)) %:%
+  foreach(i = 1:length(data_rf_1500)) %:%
     foreach(h = 1:length(sites), .combine = "rbind") %do% {
       z <- filter(data_rf_1500[[i]], site_id == sites[h])
       z1 <- z[,1:2]
@@ -325,7 +325,7 @@ data_std_rf_1500 <-
   }
 
 data_std_rf_100 <- 
-  foreach(i = length(data_rf_100)) %:%
+  foreach(i = 1:length(data_rf_100)) %:%
     foreach(h = 1:length(sites), .combine = "rbind") %do% {
       z <- filter(data_rf_100[[i]], site_id == sites[h])
       z1 <- z[,1:2]
