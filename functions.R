@@ -218,25 +218,20 @@ summarize_env <- function(env_dat, cores) {
     
     m <- 
       foreach(v = 1:length(var_names), .combine = "cbind") %:%
-        foreach(t = 2:length(seasons), .combine = "rbind") %do% {
+        foreach(t = 1:length(seasons), .combine = "rbind") %do% {
           
-          lag0a <- filter(env_dat, site_id == sites[i], season == seasons[t-1]) %>% 
-            select(num_range(paste(var_names[v], ".", sep = ""), 12)) %>%
+          lag0 <- filter(env_dat, site_id == sites[i], season == seasons[t]) %>% 
+            select(num_range(paste(var_names[v], ".", sep = ""), 3:6)) %>%
             as.matrix()
           
-          lag0b <- filter(env_dat, site_id == sites[i], season == seasons[t]) %>% 
-            select(num_range(paste(var_names[v], ".", sep = ""), 1:11)) %>%
-            as.matrix()
-          
-          # Winter is April to September, Summer is December to February
-          res <- c(mean(c(lag0a, lag0b[1:2])), lag0b[3], mean(lag0b[4:9]), lag0b[10:11])
-          names(res) <- paste(var_names[v], c("summer", "winter", "march", "oct", "nov"), sep = "_")
+          res <- mean(lag0[1:4])
+          names(res) <- var_names[v]
           
           return(res)
         
       }
     
-    m2 <- data.frame(site_id = rep(sites[i], length(seasons)-1), season = seasons[-1], m)
+    m2 <- data.frame(site_id = rep(sites[i], length(seasons)), season = seasons, m)
     rownames(m2) <- NULL
     
     return(m2)
@@ -271,19 +266,19 @@ add_lags <- function(env_dat, cores) {
       foreach(t = 7:length(seasons), .combine = "rbind") %do% {
         
         lag3 <- filter(env_dat, site_id == sites[i], season == seasons[t-2]) %>% 
-          select(-site_id, -season, -contains("oct"), -contains("nov")) %>%
+          select(-site_id, -season) %>%
           as.matrix()
         
         lag4 <- filter(env_dat, site_id == sites[i], season == seasons[t-3]) %>% 
-          select(-site_id, -season, -contains("oct"), -contains("nov")) %>%
+          select(-site_id, -season) %>%
           as.matrix()
 
         lag5 <- filter(env_dat, site_id == sites[i], season == seasons[t-4]) %>% 
-          select(-site_id, -season, -contains("oct"), -contains("nov")) %>%
+          select(-site_id, -season) %>%
           as.matrix()
 
         lag6 <- filter(env_dat, site_id == sites[i], season == seasons[t-5]) %>% 
-          select(-site_id, -season, -contains("oct"), -contains("nov")) %>%
+          select(-site_id, -season) %>%
           as.matrix()
 
         res <- c(lag3, lag4, lag5, lag6)

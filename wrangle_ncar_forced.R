@@ -150,39 +150,36 @@ saveRDS(env_dat_100, file = "data_forced_env_100km_adpe.rds")
 
 # Summarize data into seasons ---------------------------------------------
 
-data_rf_1500 <- summarize_env(env_dat_1500, cores = 6)
-data_rf_500 <- summarize_env(env_dat_500, cores = 6)
-data_rf_100 <- summarize_env(env_dat_100, cores = 6)
+data_finn_1500 <- summarize_env(env_dat_1500, cores = 6)
+data_finn_500 <- summarize_env(env_dat_500, cores = 6)
+data_finn_100 <- summarize_env(env_dat_100, cores = 6)
 
-data_std_rf_1500 <- group_by(data_rf_1500, site_id) %>%
-  filter(season < 2018) %>%
+data_std_finn_1500 <- group_by(data_finn_1500, site_id) %>%
   mutate(across(-season, function(x) (x- mean(x))/sd(x))) %>%
   ungroup()
 
-data_std_rf_500 <- group_by(data_rf_500, site_id) %>%
-  filter(season < 2018) %>%
+data_std_finn_500 <- group_by(data_finn_500, site_id) %>%
   mutate(across(-season, function(x) (x- mean(x))/sd(x))) %>%
   ungroup()
 
-data_std_rf_100 <- group_by(data_rf_100, site_id) %>%
-  filter(season < 2018) %>%
+data_std_finn_100 <- group_by(data_finn_100, site_id) %>%
   mutate(across(-season, function(x) (x- mean(x))/sd(x))) %>%
   ungroup()
 
 # Add lags
-data_rf_1500_lag <- add_lags(data_rf_1500, cores = 6)
-data_rf_500_lag <- add_lags(data_rf_500, cores = 6)
-data_rf_100_lag <- add_lags(data_rf_100, cores = 6)
+data_finn_1500_lag <- add_lags(data_finn_1500, cores = 6)
+data_finn_500_lag <- add_lags(data_finn_500, cores = 6)
+data_finn_100_lag <- add_lags(data_finn_100, cores = 6)
 
-data_std_rf_1500_lag <- add_lags(data_std_rf_1500, cores = 6)
-data_std_rf_500_lag <- add_lags(data_std_rf_500, cores = 6)
-data_std_rf_100_lag <- add_lags(data_std_rf_100, cores = 6)
+data_std_finn_1500_lag <- add_lags(data_std_finn_1500, cores = 6)
+data_std_finn_500_lag <- add_lags(data_std_finn_500, cores = 6)
+data_std_finn_100_lag <- add_lags(data_std_finn_100, cores = 6)
 
-saveRDS(data_rf_1500_lag, "data_forced_rf_1500km_adpe.rds")
-saveRDS(data_rf_500_lag, "data_forced_rf_500km_adpe.rds")
-saveRDS(data_rf_100_lag, "data_forced_rf_100km_adpe.rds")
+saveRDS(data_finn_1500_lag, "data_forced_finn_1500km_adpe.rds")
+saveRDS(data_finn_500_lag, "data_forced_finn_500km_adpe.rds")
+saveRDS(data_finn_100_lag, "data_forced_finn_100km_adpe.rds")
 
-saveRDS(data_std_rf_1500_lag, "data_forced_std_rf_1500km_adpe.rds")
-saveRDS(data_std_rf_500_lag, "data_forced_std_rf_500km_adpe.rds")
-saveRDS(data_std_rf_100_lag, "data_forced_std_rf_100km_adpe.rds")
+saveRDS(data_std_finn_1500_lag, "data_forced_std_finn_1500km_adpe.rds")
+saveRDS(data_std_finn_500_lag, "data_forced_std_finn_500km_adpe.rds")
+saveRDS(data_std_finn_100_lag, "data_forced_std_finn_100km_adpe.rds")
 
