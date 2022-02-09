@@ -116,7 +116,8 @@ env_list_1500 <-
                 data_poly = data_poly_1500,
                 first_year = 1958,
                 last_year = 2018,
-                tw = tw)
+                tw = tw,
+                poly_id = c("site_id", "ccamlr_id", "species_id"))
 
 env_list_500 <- 
   foreach (i=1:length(raster_names), .packages = pack) %dopar%
@@ -125,7 +126,7 @@ env_list_500 <-
                 data_poly = data_poly_500,
                 first_year = 1958,
                 last_year = 2018,
-                tw = tw)
+                poly_id = c("site_id", "ccamlr_id", "species_id"))
 
 env_list_100 <- 
   foreach (i=1:length(raster_names), .packages = pack) %dopar%
@@ -134,7 +135,7 @@ env_list_100 <-
                 data_poly = data_poly_100,
                 first_year = 1958,
                 last_year = 2018,
-                tw = tw)
+                poly_id = c("site_id", "ccamlr_id", "species_id"))
 
 stopCluster(cl)
 
