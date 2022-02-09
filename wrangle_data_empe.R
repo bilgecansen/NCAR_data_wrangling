@@ -10,41 +10,8 @@ source("functions.R")
 
 empe_sites <- read.csv("empe_sites_new.csv")
 
-
-# Create site polygons ----------------------------------------------------
-
-draw_poly <- function(sites, dlon, dlat) {
-  
-  y1 <- sites$latitude
-  y2 <- sites$latitude + dlat
-  
-  x1 <- sites$longitude - dlon/2
-  x2 <- sites$longitude + dlon/2
-  
-  p1 <- cbind(x1, y1)
-  p2 <- cbind(x2, y1)
-  p3 <- cbind(x2, y2)
-  p4 <- cbind(x1, y2)
-  
-  site_poly <- foreach(i = 1:nrow(sites)) %do% {
-    
-    st_polygon(list(rbind(p1[i,], p2[i,], p3[i,], p4[i,], p1[i,])))
-    
-  }
-  
-  return(st_sfc(site_poly))
-  
-}
-
-row.names(empe_sites) <- paste("ID", row.names(empe_sites), sep = "")
-
-poly_breed <- draw_poly(empe_sites, dlat = 20, dlon = 10) %>%
-  as_Spatial() %>%
-  SpatialPolygonsDataFrame(empe_sites[,-(2:3)])
-
-poly_nonbreed <- draw_poly(empe_sites, dlat = 20, dlon = 20)  %>%
-  as_Spatial() %>%
-  SpatialPolygonsDataFrame(empe_sites[,-(2:3)])
+poly_breed <- readRDS("data_poly_600km_empe.rds")
+poly_nonbreed <- readRDS("data_poly_850km_empe.rds")
 
 
 # Transform netcdf to raster ----------------------------------------------
@@ -92,39 +59,54 @@ r_area <- raster(pixels[,'z'])
 
 raster_dir <- "NCAR_forced_raster"
 raster_names <- list.files(raster_dir)
-raster_names <- raster_names[str_which(raster_names, "grd")][c(2,3,7:9)]
 
-cl <- makeCluster(6, types = "SOCK")
-registerDoSNOW(cl)
+# Extract wind speed
+raster_names_wind <- raster_names[str_which(raster_names, "grd")][c(7:8)]
 
-pack <- c("raster", "dplyr", "magrittr", "stringr", "tibble", "tidyr" )
+rr_uatm <- brick(paste(raster_dir, raster_names_wind[1], sep = "/"))
+r_vatm <- brick(paste(raster_dir, raster_names_wind[2], sep = "/"))
 
-env_breed <- 
-  foreach (i=1:length(raster_names), .packages = pack) %dopar%
-  extract_env(raster_dir = raster_dir,
-              raster_name = raster_names[i],
-              data_poly = poly_breed,
-              first_year = 1979,
-              last_year = 2018,
-              tw = NA,
-              poly_id = c("site_id", "new_n"))
+wind_breed <- raster::extract((r_uatm^2) + (r_vatm^2), 
+                              poly_breed, 
+                              weights = F,
+                              fun = sum, 
+                              na.rm = T,
+                              sp = T)
 
-by_col <- c("site_id", "new_n", "season")
-env_breed <- reduce(env_breed, function(x, y) full_join(x, y, by = by_col))
+wind_nonbreed <- raster::extract((r_uatm^2) + (r_vatm^2), 
+                                 poly_breed, 
+                                 weights = F,
+                                 fun = sum, 
+                                 na.rm = T,
+                                 sp = T)
 
-env_nonbreed <- 
-  foreach (i=1:length(raster_names), .packages = pack) %dopar%
-  extract_env(raster_dir = raster_dir,
-              raster_name = raster_names[i],
-              data_poly = poly_nonbreed,
-              first_year = 1979,
-              last_year = 2018,
-              tw = NA,
-              poly_id = c("site_id", "new_n"))
+nyears <- 2018 - 1979 + 1
+years <- 1979:2018
+nsites <- length(empe_sites$site_id)
 
-env_nonbreed <- reduce(env_nonbreed, function(x, y) full_join(x, y, by = by_col))
+seasons <- rep(rep(years, each = 12), times = nsites)
+months <- rep(rep(1:12, times = nyears), times = nsites)
+poly_id <- c("site_id", "new_n")
 
-stopCluster(cl)
+wind_breed <- as.data.frame(wind_raw_breed) %>%
+  dplyr::select(num_range("layer.", 1:(12*nyears)), poly_id) %>%
+  pivot_longer(cols = contains("layer."), names_to = "drop") %>%
+  dplyr::select(-drop) %>%
+  add_column(season = seasons) %>%
+  add_column(month = months) %>%
+  pivot_wider(names_from = month, 
+              values_from = value, 
+              names_prefix = paste("wind", ".", sep = ""))
+
+wind_nonbreed <- as.data.frame(wind_raw_nonbreed) %>%
+  dplyr::select(num_range("layer.", 1:(12*nyears)), poly_id) %>%
+  pivot_longer(cols = contains("layer."), names_to = "drop") %>%
+  dplyr::select(-drop) %>%
+  add_column(season = seasons) %>%
+  add_column(month = months) %>%
+  pivot_wider(names_from = month, 
+              values_from = value, 
+              names_prefix = paste("wind", ".", sep = ""))
 
 # Extract sea ice
 ice_raw_breed <- raster::extract(r_ice*r_area, 
@@ -160,14 +142,6 @@ for (i in 1:480) {
   ice_raw_nonbreed[[2+i]] <- ice_raw_nonbreed[[2+i]]/area_sum_nonbreed
 }
 
-nyears <- 2018 - 1979 + 1
-years <- 1979:2018
-nsites <- length(empe_sites$site_id)
-
-seasons <- rep(rep(years, each = 12), times = nsites)
-months <- rep(rep(1:12, times = nyears), times = nsites)
-poly_id <- c("site_id", "new_n")
-
 ice_breed <- as.data.frame(ice_raw_breed) %>%
   dplyr::select(num_range("layer.", 1:(12*nyears)), poly_id) %>%
   pivot_longer(cols = contains("layer."), names_to = "drop") %>%
@@ -188,19 +162,57 @@ ice_nonbreed <- as.data.frame(ice_raw_nonbreed) %>%
               values_from = value, 
               names_prefix = paste("aice", ".", sep = ""))
 
-env_breed <- left_join(env_breed, ice_breed, by = by_col)
-env_nonbreed <- left_join(env_nonbreed, ice_nonbreed, by = by_col)
+# Extract other variables
+raster_names_others <- raster_names[str_which(raster_names, "grd")][c(2,3,9)]
+
+cl <- makeCluster(6, types = "SOCK")
+registerDoSNOW(cl)
+
+pack <- c("raster", "dplyr", "magrittr", "stringr", "tibble", "tidyr" )
+
+others_breed <- 
+  foreach (i=1:length(raster_names_others), .packages = pack) %dopar%
+  extract_env(raster_dir = raster_dir,
+              raster_name = raster_names_others[i],
+              data_poly = poly_breed,
+              first_year = 1979,
+              last_year = 2018,
+              tw = NA,
+              poly_id = c("site_id", "new_n"))
+
+by_col <- c("site_id", "new_n", "season")
+others_breed <- reduce(others_breed, function(x, y) full_join(x, y, by = by_col))
+
+others_nonbreed <- 
+  foreach (i=1:length(raster_names_others), .packages = pack) %dopar%
+  extract_env(raster_dir = raster_dir,
+              raster_name = raster_names_others[i],
+              data_poly = poly_nonbreed,
+              first_year = 1979,
+              last_year = 2018,
+              tw = NA,
+              poly_id = c("site_id", "new_n"))
+
+others_nonbreed <- reduce(others_nonbreed, function(x, y) full_join(x, y, by = by_col))
+
+stopCluster(cl)
+
+env_breed <- left_join(others_breed, ice_breed, by = by_col) %>%
+  left_join(wind_breed)
+
+env_nonbreed <- left_join(others_nonbreed, ice_nonbreed, by = by_col) %>%
+  left_join(wind_nonbreed)
 
 
 # Summarize data into seasons ---------------------------------------------
 
 sites2 <- empe_sites$site_id
-var_names <- c("aice", "uatm", "vatm", "HMXL")
+var_names <- c("aice", "wind", "aicen", "ardg", "HMXL")
 
 cl <- makeCluster(6, types = "SOCK")
 registerDoSNOW(cl)
 
-pb <- txtProgressBar(max = length(sites), style = 3)
+pb <- txtProgressBar(max = length(sites2), style = 3)
 progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 pack <- c("tidyverse", "foreach")
