@@ -51,19 +51,19 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
     
   }
 
-  lon <- c(ncdf4::ncvar_get(ncin, long_name, count = c(-1,60), verbose = FALSE))
+  lon <- c(ncdf4::ncvar_get(ncin, long_name, count = c(-1,70), verbose = FALSE))
   # This conversion of lon ensures MAPPPED sites and rasters overlap
   lon <- sapply(lon, function(x) ifelse(x>180, (x - 360), x))
   
-  lat <- c(ncdf4::ncvar_get(ncin, lat_name, count = c(-1, 60), verbose = FALSE))
+  lat <- c(ncdf4::ncvar_get(ncin, lat_name, count = c(-1, 70), verbose = FALSE))
   
   if (is.null(member_name)) {
-    count1 <- c(-1, 60, depth_count, -1)
-    count2 <- c(-1, 60, -1)
+    count1 <- c(-1, 70, depth_count, -1)
+    count2 <- c(-1, 70, -1)
   
   } else {
-    count1 <- c(-1, 60, depth_count, -1, -1)
-    count2 <- c(-1, 60, -1, -1)
+    count1 <- c(-1, 70, depth_count, -1, -1)
+    count2 <- c(-1, 70, -1, -1)
   }
   
   if (depth) {
@@ -104,7 +104,8 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
 
 # Extract values from rasters ---------------------------------------------
 
-extract_env <- function(raster_dir, raster_name, member_name = NULL, data_poly, first_year, last_year, tw) {
+extract_env <- function(raster_dir, raster_name, member_name = NULL, 
+                        data_poly, first_year, last_year, tw = NA, poly_id) {
   
   nyears <- last_year - first_year + 1
   years <- first_year:last_year
@@ -143,23 +144,27 @@ extract_env <- function(raster_dir, raster_name, member_name = NULL, data_poly, 
   }
   
   # Assign NAs to lats under civil twilight 
-  for (i in 1:12) {
+  if (!is.na(tw)) {
     
-    z <- coordinates(r_brick[[i]])
-    idx <- which(z[,2]<tw[i])
-    
-    if (length(idx) == 0) next
-    
-    r_brick[[i]][idx] <- NA
-    
-    for (h in 1:(nyears-1)) {
+    for (i in 1:12) {
       
-      z <- coordinates(r_brick[[i+h*12]])
+      z <- coordinates(r_brick[[i]])
       idx <- which(z[,2]<tw[i])
       
-      r_brick[[i+h*12]][idx] <- NA
+      if (length(idx) == 0) next
       
+      r_brick[[i]][idx] <- NA
+      
+      for (h in 1:(nyears-1)) {
+        
+        z <- coordinates(r_brick[[i+h*12]])
+        idx <- which(z[,2]<tw[i])
+        
+        r_brick[[i+h*12]][idx] <- NA
+        
+      }
     }
+    
   }
   
   env_raw <- raster::extract(r_brick, 
@@ -169,10 +174,7 @@ extract_env <- function(raster_dir, raster_name, member_name = NULL, data_poly, 
                              na.rm = T,
                              sp = T)
   
-  
-  nsites <- as.data.frame(env_raw)$site_id %>%
-    unique() %>%
-    length()
+  nsites <- nrow(env_raw)
   
   # When transformed to data frame env_raw has columns z.1 to z.732 (or some other value)
   # Each z corresponds to a month in year 
@@ -181,7 +183,7 @@ extract_env <- function(raster_dir, raster_name, member_name = NULL, data_poly, 
   months <- rep(rep(1:12, times = nyears), times = nsites)
   
   env_dat <- as.data.frame(env_raw) %>%
-    dplyr::select(-site_name, -region) %>%
+    dplyr::select(num_range("z.", 1:(12*nyears)), poly_id) %>%
     pivot_longer(cols = contains("z."), names_to = "drop") %>%
     dplyr::select(-drop) %>%
     add_column(season = seasons) %>%
