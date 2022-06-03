@@ -63,22 +63,22 @@ raster_names <- list.files(raster_dir)
 # Extract wind speed
 raster_names_wind <- raster_names[str_which(raster_names, "grd")][c(7:8)]
 
-rr_uatm <- brick(paste(raster_dir, raster_names_wind[1], sep = "/"))
+r_uatm <- brick(paste(raster_dir, raster_names_wind[1], sep = "/"))
 r_vatm <- brick(paste(raster_dir, raster_names_wind[2], sep = "/"))
 
-wind_breed <- raster::extract((r_uatm^2) + (r_vatm^2), 
-                              poly_breed, 
-                              weights = F,
-                              fun = sum, 
-                              na.rm = T,
-                              sp = T)
+wind_raw_breed <- raster::extract((r_uatm^2) + (r_vatm^2), 
+                                  poly_breed, 
+                                  weights = T,
+                                  fun = mean, 
+                                  na.rm = T,
+                                  sp = T)
 
-wind_nonbreed <- raster::extract((r_uatm^2) + (r_vatm^2), 
-                                 poly_breed, 
-                                 weights = F,
-                                 fun = sum, 
-                                 na.rm = T,
-                                 sp = T)
+wind_raw_nonbreed <- raster::extract((r_uatm^2) + (r_vatm^2), 
+                                      poly_nonbreed, 
+                                      weights = T,
+                                      fun = mean, 
+                                      na.rm = T,
+                                      sp = T)
 
 nyears <- 2018 - 1979 + 1
 years <- 1979:2018
@@ -107,6 +107,7 @@ wind_nonbreed <- as.data.frame(wind_raw_nonbreed) %>%
   pivot_wider(names_from = month, 
               values_from = value, 
               names_prefix = paste("wind", ".", sep = ""))
+
 
 # Extract sea ice
 ice_raw_breed <- raster::extract(r_ice*r_area, 
@@ -163,7 +164,7 @@ ice_nonbreed <- as.data.frame(ice_raw_nonbreed) %>%
               names_prefix = paste("aice", ".", sep = ""))
 
 # Extract other variables
-raster_names_others <- raster_names[str_which(raster_names, "grd")][c(2,3,9)]
+raster_names_others <- raster_names[str_which(raster_names, "grd")][c(9:12)]
 
 cl <- makeCluster(6, types = "SOCK")
 registerDoSNOW(cl)
@@ -178,7 +179,8 @@ others_breed <-
               first_year = 1979,
               last_year = 2018,
               tw = NA,
-              poly_id = c("site_id", "new_n"))
+              poly_id = c("site_id", "new_n"),
+              func = "mean")
 
 by_col <- c("site_id", "new_n", "season")
 others_breed <- reduce(others_breed, function(x, y) full_join(x, y, by = by_col))
@@ -191,7 +193,8 @@ others_nonbreed <-
               first_year = 1979,
               last_year = 2018,
               tw = NA,
-              poly_id = c("site_id", "new_n"))
+              poly_id = c("site_id", "new_n"),
+              func = "mean")
 
 others_nonbreed <- reduce(others_nonbreed, function(x, y) full_join(x, y, by = by_col))
 
@@ -206,62 +209,50 @@ env_nonbreed <- left_join(others_nonbreed, ice_nonbreed, by = by_col) %>%
 
 # Summarize data into seasons ---------------------------------------------
 
-sites2 <- empe_sites$site_id
-var_names <- c("aice", "wind", "aicen", "ardg", "HMXL")
-
-cl <- makeCluster(6, types = "SOCK")
-registerDoSNOW(cl)
-
-pb <- txtProgressBar(max = length(sites2), style = 3)
-progress <- function(n) setTxtProgressBar(pb, n)
-opts <- list(progress = progress)
-pack <- c("tidyverse", "foreach")
-
-env_season_breed <- foreach(i = 1:length(sites2), .packages = pack, .combine = "rbind", .options.snow = opts) %dopar% {
+summarise_seasons <- function(dat, var_names) {
   
-  m <-
-    foreach(v = 1:length(var_names), .combine = "cbind") %:%
-    foreach(t = 1:length(years), .combine = "rbind") %do% {
-      lag0 <- filter(env_breed, site_id == sites2[i], season == years[t]) %>% 
-        select(num_range(paste(var_names[v], ".", sep = ""), 1:12)) %>%
-        as.matrix()
+  sites2 <- empe_sites$site_id
+  years <- 1979:2018
+  
+  cl <- makeCluster(6, types = "SOCK")
+  registerDoSNOW(cl)
+  
+  pb <- txtProgressBar(max = length(sites2), style = 3)
+  progress <- function(n) setTxtProgressBar(pb, n)
+  opts <- list(progress = progress)
+  pack <- c("tidyverse", "foreach")
+  
+  res <- foreach(i = 1:length(sites2), .packages = pack, .combine = "rbind", .options.snow = opts) %dopar% {
+    
+    m <-
+      foreach(v = 1:length(var_names), .combine = "cbind") %:%
+      foreach(t = 1:length(years), .combine = "rbind") %do% {
+        lag0 <- filter(dat, site_id == sites2[i], season == years[t]) %>% 
+          select(num_range(paste(var_names[v], ".", sep = ""), 1:12)) %>%
+          as.matrix()
         
         res <- c(mean(c(lag0[1:3])), mean(lag0[4:5]), mean(lag0[6:7]), mean(lag0[8:12]))
         names(res) <- paste(var_names[v], c("nonbreed", "arrival", "incubation", "rearing"), sep = "_")
         
         return(res)
-    }
+      }
+    
+    m2 <- data.frame(site_id = rep(sites2[i], length(years)), season = years, m)
+    rownames(m2) <- NULL
+    
+    return(m2)
+    
+  }
   
-  m2 <- data.frame(site_id = rep(sites2[i], length(years)), season = years, m)
-  rownames(m2) <- NULL
+  stopCluster(cl)
   
-  return(m2)
-  
+  return(res)
 }
 
-env_season_nonbreed <- foreach(i = 1:length(sites2), .packages = pack, .combine = "rbind", .options.snow = opts) %dopar% {
-  
-  m <-
-    foreach(v = 1:length(var_names), .combine = "cbind") %:%
-    foreach(t = 1:length(years), .combine = "rbind") %do% {
-      lag0 <- filter(env_nonbreed, site_id == sites2[i], season == years[t]) %>% 
-        select(num_range(paste(var_names[v], ".", sep = ""), 1:12)) %>%
-        as.matrix()
-      
-      res <- c(mean(c(lag0[1:3])), mean(lag0[4:5]), mean(lag0[6:7]), mean(lag0[8:12]))
-      names(res) <- paste(var_names[v], c("nonbreed", "arrival", "incubation", "rearing"), sep = "_")
-      
-      return(res)
-    }
-  
-  m2 <- data.frame(site_id = rep(sites2[i], length(years)), season = years, m)
-  rownames(m2) <- NULL
-  
-  return(m2)
-  
-}
+var_names <- c("aice", "wind", "HMXL", "zooC", "photoC_TOT_zint_100m", "TEMP")
 
-stopCluster(cl)
+env_season_breed <- summarise_seasons(env_breed, var_names = var_names)
+env_season_nonbreed <- summarise_seasons(env_nonbreed, var_names = var_names)
 
 # Combine relevant seasons
 data_empe <- select(env_season_breed, -contains("_nonbreed")) %>%
