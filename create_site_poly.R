@@ -2,6 +2,7 @@
 library(rspice)
 library(mapppdr)
 library(sf)
+library(foreach)
 
 
 # Adelie Penguins ---------------------------------------------------------
@@ -54,6 +55,11 @@ empe_points <- foreach(i = 1:nrow(empe_sites)) %do% st_point(as.matrix(empe_site
 empe_sites2 <- st_sf(site_id = empe_sites[,1], new_n = empe_sites[,4], geometry = st_sfc(empe_points))
 st_crs(empe_sites2) <- 4326
 
+empe_poly_100 <- rangeField(sites = empe_sites2, max_range = 100)[[1]] %>%
+  st_transform(crs = 4326) %>%
+  st_wrap_dateline() %>%
+  as_Spatial()
+
 empe_poly_500 <- rangeField(sites = empe_sites2, max_range = 500)[[1]] %>%
   st_transform(crs = 4326) %>%
   st_wrap_dateline() %>%
@@ -89,6 +95,7 @@ empe_poly_2000 <- rangeField(sites = empe_sites2, max_range = 2000)[[1]] %>%
   st_wrap_dateline() %>%
   as_Spatial()
 
+saveRDS(empe_poly_100, "data_poly_100km_empe.rds")
 saveRDS(empe_poly_500, "data_poly_500km_empe.rds")
 saveRDS(empe_poly_600, "data_poly_600km_empe.rds")
 saveRDS(empe_poly_750, "data_poly_750km_empe.rds")
