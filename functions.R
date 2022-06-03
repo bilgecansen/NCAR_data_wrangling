@@ -105,7 +105,7 @@ transform_to_raster <- function(netcdf_dir, var_name, member_name = NULL, raster
 # Extract values from rasters ---------------------------------------------
 
 extract_env <- function(raster_dir, raster_name, member_name = NULL, 
-                        data_poly, first_year, last_year, tw = NA, poly_id) {
+                        data_poly, first_year, last_year, tw = NA, poly_id, func) {
   
   nyears <- last_year - first_year + 1
   years <- first_year:last_year
@@ -167,12 +167,23 @@ extract_env <- function(raster_dir, raster_name, member_name = NULL,
     
   }
   
-  env_raw <- raster::extract(r_brick, 
-                             data_poly, 
-                             weights = T, 
-                             fun = mean, 
-                             na.rm = T,
-                             sp = T)
+  if (func == "mean") {
+    env_raw <- raster::extract(r_brick, 
+                               data_poly, 
+                               weights = T, 
+                               fun = mean, 
+                               na.rm = T,
+                               sp = T)
+  }
+  
+  if (func == "sd") {
+    env_raw <- raster::extract(r_brick, 
+                               data_poly, 
+                               weights = F, 
+                               fun = sd, 
+                               na.rm = T,
+                               sp = T)
+  }
   
   nsites <- nrow(env_raw)
   
