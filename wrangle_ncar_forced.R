@@ -92,7 +92,6 @@ raster_names <- raster_names[str_which(raster_names, "grd")]
 
 data_poly_1500 <- readRDS("data_poly_1500km_adpe.rds")
 data_poly_500 <- readRDS("data_poly_500km_adpe.rds")
-data_poly_100 <- readRDS("data_poly_100km_adpe.rds")
 
 # Calculate the civil twilight for each month
 day <- c()
@@ -117,7 +116,8 @@ env_list_1500 <-
                 first_year = 1958,
                 last_year = 2018,
                 tw = tw,
-                poly_id = c("site_id", "ccamlr_id", "species_id"))
+                poly_id = c("site_id", "ccamlr_id", "species_id"),
+                func = "mean")
 
 env_list_500 <- 
   foreach (i=1:length(raster_names), .packages = pack) %dopar%
@@ -126,34 +126,23 @@ env_list_500 <-
                 data_poly = data_poly_500,
                 first_year = 1958,
                 last_year = 2018,
-                poly_id = c("site_id", "ccamlr_id", "species_id"))
-
-env_list_100 <- 
-  foreach (i=1:length(raster_names), .packages = pack) %dopar%
-    extract_env(raster_dir = raster_dir,
-                raster_name = raster_names[i],
-                data_poly = data_poly_100,
-                first_year = 1958,
-                last_year = 2018,
-                poly_id = c("site_id", "ccamlr_id", "species_id"))
+                poly_id = c("site_id", "ccamlr_id", "species_id"),
+                func = "mean")
 
 stopCluster(cl)
 
 by_col <- c("site_id", "species_id", "season", "ccamlr_id")
 env_dat_1500 <- reduce(env_list_1500, function(x, y) full_join(x, y, by = by_col))
 env_dat_500 <- reduce(env_list_500, function(x, y) full_join(x, y, by = by_col))
-env_dat_100 <- reduce(env_list_100, function(x, y) full_join(x, y, by = by_col))
 
 saveRDS(env_dat_1500, file = "data_forced_env_1500km_adpe.rds")
 saveRDS(env_dat_500, file = "data_forced_env_500km_adpe.rds")
-saveRDS(env_dat_100, file = "data_forced_env_100km_adpe.rds")
 
 
 # Summarize data into seasons ---------------------------------------------
 
 data_finn_1500 <- summarize_env(env_dat_1500, cores = 6)
 data_finn_500 <- summarize_env(env_dat_500, cores = 6)
-data_finn_100 <- summarize_env(env_dat_100, cores = 6)
 
 data_std_finn_1500 <- group_by(data_finn_1500, site_id) %>%
   mutate(across(-season, function(x) (x- mean(x))/sd(x))) %>%
@@ -163,24 +152,17 @@ data_std_finn_500 <- group_by(data_finn_500, site_id) %>%
   mutate(across(-season, function(x) (x- mean(x))/sd(x))) %>%
   ungroup()
 
-data_std_finn_100 <- group_by(data_finn_100, site_id) %>%
-  mutate(across(-season, function(x) (x- mean(x))/sd(x))) %>%
-  ungroup()
 
 # Add lags
 data_finn_1500_lag <- add_lags(data_finn_1500, cores = 6)
 data_finn_500_lag <- add_lags(data_finn_500, cores = 6)
-data_finn_100_lag <- add_lags(data_finn_100, cores = 6)
 
 data_std_finn_1500_lag <- add_lags(data_std_finn_1500, cores = 6)
 data_std_finn_500_lag <- add_lags(data_std_finn_500, cores = 6)
-data_std_finn_100_lag <- add_lags(data_std_finn_100, cores = 6)
 
 saveRDS(data_finn_1500_lag, "data_forced_finn_1500km_adpe.rds")
 saveRDS(data_finn_500_lag, "data_forced_finn_500km_adpe.rds")
-saveRDS(data_finn_100_lag, "data_forced_finn_100km_adpe.rds")
 
 saveRDS(data_std_finn_1500_lag, "data_forced_std_finn_1500km_adpe.rds")
 saveRDS(data_std_finn_500_lag, "data_forced_std_finn_500km_adpe.rds")
-saveRDS(data_std_finn_100_lag, "data_forced_std_finn_100km_adpe.rds")
 
