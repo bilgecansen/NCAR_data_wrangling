@@ -16,6 +16,13 @@ poly_nonbreed <- readRDS("data_poly_850km_empe.rds")
 
 # Transform netcdf to raster ----------------------------------------------
 
+# depth: most variables don't have depth but some include multiple layers of ocean
+# depth_count: how many layers of depth to include in the transformation. If the goal is not to 
+# integrate across years, this should be a single layer
+# Integrate: Integration across multiple years, in which each value in a layer is multiplied with layer length (~ 10 m)
+# and all values across layers are then summed.
+# Ratio: Mostly for ice concentration which changes between 0 and 100 but transformed to be between 0 and 1.
+
 transform_to_raster <- function(file_name, lon_name, lat_name, var_name, 
                                 nyears, depth = F, depth_count, integral = F, ratio = F) {
   
@@ -127,6 +134,10 @@ r_zooc <- transform_to_raster(file_name = file_name,
                               depth_count = 10)
 
 # Grid area raster
+# Area raster is used to calculate either total area (or concentration) of a variable within a polygon
+# or to take the weighted mean of a variable
+
+# Use aice for getting grid area but all variables have the same grid area
 ncin <- ncdf4::nc_open("NCAR_forced_NetCDF/g.e21.GOMIPECOIAF_JRA.TL319_g17.CMIP6-omip2.001.cice.h.aice.030601-036612.nc")
 area <- c(ncdf4::ncvar_get(ncin, "tarea", count = c(-1, 70), verbose = FALSE))/1000000
 
@@ -162,11 +173,18 @@ area_sum_nonbreed <- raster::extract(r_area,
 
 # Extract env values at sites ---------------------------------------------
 
-extract_env <- function(env, area, poly, area_sum, first_year, last_year, name) {
+# Extract grid values within a polygon and calculate the area weighted average of a variable across
+# months within an ecologically relevant season
+# Seasons are:
+# nonbreed (Jan to March)
+# laying(April and May)
+# incubation(June and July)
+# rearing (August to December)
+
+extract_env <- function(env, area, poly, area_sum, first_year, last_year, var_name, season_names) {
   
   env_raw <- raster::extract(env*area, 
                              poly, 
-                             #weights = T,
                              fun = sum, 
                              na.rm = T,
                              sp = T)
@@ -179,22 +197,59 @@ extract_env <- function(env, area, poly, area_sum, first_year, last_year, name) 
     env_raw[[2+i]] <- env_raw[[2+i]]/area_sum
   }
   
-  seasons <- rep(rep(years, each = 12), times = nsites)
-  months <- rep(rep(1:12, times = nyears), times = nsites)
-  poly_id <- c("site_id", "new_n")
+  years_dat <- rep(rep(years, each = 12), times = nsites)
+  months_dat <- rep(rep(1:12, times = nyears), times = nsites)
+  
+  seasons <- c(rep("nonbreed", 3), rep("laying", 2), rep("incubation", 2), rep("rearing", 5))
+  seasons_dat <- rep(rep(seasons, times = nyears), times = nsites)
   
   data_env <- as.data.frame(env_raw) %>%
-    dplyr::select(num_range("layer.", 1:(12*nyears)), poly_id) %>%
     pivot_longer(cols = contains("layer."), names_to = "drop") %>%
     dplyr::select(-drop) %>%
-    add_column(season = seasons) %>%
-    add_column(month = months) %>%
-    pivot_wider(names_from = month, 
-                values_from = value, 
-                names_prefix = paste(name, ".", sep = ""))
+    add_column(year = years_dat) %>%
+    add_column(month = months_dat) %>%
+    add_column(season = seasons_dat)
   
-  return(data_env)
+  summarise_season <- function(data, season_name, var_name) {
+    z <- filter(data, season == season_name) %>%
+      group_by(site_id, new_n, year) %>%
+      summarise(n = mean(value))
+    
+    colnames(z)[4] <- paste(var_name, season_name, sep = "_")
+    
+    return(z)
+  }
+  
+  if (length(season_names) > 1) {
+    
+    env_season <- foreach(i = 1:length(season_names)) %do% {
+      summarise_season(data = data_env, 
+                       season_name = season_names[i], 
+                       var_name = var_name)
+    }
+    
+    by_col <- c("site_id", "new_n", "year")
+    
+    data_env2 <- env_season[[1]]
+    for (i in 1:(length(season_names)-1)) {
+      data_env2 <- left_join(data_env2, env_season[[i+1]], by = by_col)
+    }
+    
+  } else {
+    data_env2 <-  summarise_season(data = data_env, 
+                                   season_name = season_names, 
+                                   var_name = var_name)
+  }
+  
+  data_env2 <- arrange(data_env2, new_n, year) %>%
+    ungroup() %>%
+    select(-new_n)
+  
+  return(data_env2)
+  
 }
+
+breed <- c("laying", "incubation", "rearing")
 
 ice_breed <- extract_env(env = r_ice,  
                          area = r_area, 
@@ -202,7 +257,8 @@ ice_breed <- extract_env(env = r_ice,
                          area_sum = area_sum_breed, 
                          first_year = 1979, 
                          last_year = 2018,
-                         name = "aice")
+                         var_name = "aice",
+                         season_names = breed)
 
 ice_nonbreed <- extract_env(env = r_ice,  
                             area = r_area, 
@@ -210,7 +266,8 @@ ice_nonbreed <- extract_env(env = r_ice,
                             area_sum = area_sum_nonbreed, 
                             first_year = 1979, 
                             last_year = 2018,
-                            name = "aice")
+                            var_name = "aice",
+                            season_names = "nonbreed")
 
 wind_breed <- extract_env(env = sqrt((r_uatm^2) + (r_vatm^2)), 
                           area = r_area, 
@@ -218,7 +275,8 @@ wind_breed <- extract_env(env = sqrt((r_uatm^2) + (r_vatm^2)),
                           area_sum = area_sum_breed, 
                           first_year = 1958, 
                           last_year = 2018, 
-                          name = "wind")
+                          var_name = "wind",
+                          season_names = breed)
 
 wind_nonbreed <- extract_env(env = sqrt((r_uatm^2) + (r_vatm^2)), 
                              area = r_area, 
@@ -226,7 +284,8 @@ wind_nonbreed <- extract_env(env = sqrt((r_uatm^2) + (r_vatm^2)),
                              area_sum = area_sum_nonbreed, 
                              first_year = 1958, 
                              last_year = 2018, 
-                             name = "wind")
+                             var_name = "wind",
+                             season_names = "nonbreed")
 
 hmxl_breed <- extract_env(env = r_hmxl, 
                           area = r_area, 
@@ -234,7 +293,8 @@ hmxl_breed <- extract_env(env = r_hmxl,
                           area_sum = area_sum_breed, 
                           first_year = 1958, 
                           last_year = 2018, 
-                          name = "hmxl")
+                          var_name = "hmxl",
+                          season_names = breed)
 
 hmxl_nonbreed <- extract_env(env = r_hmxl, 
                              area = r_area, 
@@ -242,7 +302,8 @@ hmxl_nonbreed <- extract_env(env = r_hmxl,
                              area_sum = area_sum_nonbreed, 
                              first_year = 1958, 
                              last_year = 2018, 
-                             name = "hmxl")
+                             var_name = "hmxl",
+                             season_names = "nonbreed")
 
 phtc_breed <- extract_env(env = r_phtc, 
                           area = r_area, 
@@ -250,7 +311,8 @@ phtc_breed <- extract_env(env = r_phtc,
                           area_sum = area_sum_breed, 
                           first_year = 1958, 
                           last_year = 2018, 
-                          name = "phtc")
+                          var_name = "phtc",
+                          season_names = breed)
 
 phtc_nonbreed <- extract_env(env = r_phtc, 
                              area = r_area, 
@@ -258,7 +320,8 @@ phtc_nonbreed <- extract_env(env = r_phtc,
                              area_sum = area_sum_nonbreed, 
                              first_year = 1958, 
                              last_year = 2018, 
-                             name = "phtc")
+                             var_name = "phtc",
+                             season_names = "nonbreed")
 
 zooc_breed <- extract_env(env = r_zooc, 
                           area = r_area, 
@@ -266,7 +329,8 @@ zooc_breed <- extract_env(env = r_zooc,
                           area_sum = area_sum_breed, 
                           first_year = 1958, 
                           last_year = 2018, 
-                          name = "zooc")
+                          var_name = "zooc",
+                          season_names = breed)
 
 zooc_nonbreed <- extract_env(env = r_zooc, 
                              area = r_area, 
@@ -274,7 +338,8 @@ zooc_nonbreed <- extract_env(env = r_zooc,
                              area_sum = area_sum_nonbreed, 
                              first_year = 1958, 
                              last_year = 2018, 
-                             name = "zooc")
+                             var_name = "zooc",
+                             season_names = "nonbreed")
 
 temp_breed <- extract_env(env = r_temp, 
                           area = r_area, 
@@ -282,7 +347,8 @@ temp_breed <- extract_env(env = r_temp,
                           area_sum = area_sum_breed, 
                           first_year = 1958, 
                           last_year = 2018, 
-                          name = "temp")
+                          var_name = "temp",
+                          season_names = breed)
 
 temp_nonbreed <- extract_env(env = r_temp, 
                              area = r_area, 
@@ -290,75 +356,25 @@ temp_nonbreed <- extract_env(env = r_temp,
                              area_sum = area_sum_nonbreed, 
                              first_year = 1958, 
                              last_year = 2018, 
-                             name = "temp")
+                             var_name = "temp",
+                             season_names = "nonbreed")
 
 # Combine data
-by_col = c("site_id", "new_n", "season")
+by_col <- c("site_id", "year")
 
 env_breed <- left_join(ice_breed, wind_breed, by = by_col) %>%
-  left_join(hmxl_breed) %>%
-  left_join(zooc_breed) %>%
-  left_join(temp_breed) %>%
-  left_join(phtc_breed)
+  left_join(hmxl_breed, by = by_col) %>%
+  left_join(zooc_breed, by = by_col) %>%
+  left_join(temp_breed, by = by_col) %>%
+  left_join(phtc_breed, by = by_col)
 
 env_nonbreed <- left_join(ice_nonbreed, wind_nonbreed, by = by_col) %>%
-  left_join(hmxl_nonbreed) %>%
-  left_join(zooc_nonbreed) %>%
-  left_join(temp_nonbreed) %>%
-  left_join(phtc_nonbreed)
+  left_join(hmxl_nonbreed, by = by_col) %>%
+  left_join(zooc_nonbreed, by = by_col) %>%
+  left_join(temp_nonbreed, by = by_col) %>%
+  left_join(phtc_nonbreed, by = by_col)
 
-
-# Summarize data into seasons ---------------------------------------------
-
-summarise_seasons <- function(dat, var_names) {
-  
-  sites2 <- empe_sites$site_id
-  years <- 1979:2018
-  
-  cl <- makeCluster(6, types = "SOCK")
-  registerDoSNOW(cl)
-  
-  pb <- txtProgressBar(max = length(sites2), style = 3)
-  progress <- function(n) setTxtProgressBar(pb, n)
-  opts <- list(progress = progress)
-  pack <- c("tidyverse", "foreach")
-  
-  res <- foreach(i = 1:length(sites2), .packages = pack, .combine = "rbind", .options.snow = opts) %dopar% {
-    
-    m <-
-      foreach(v = 1:length(var_names), .combine = "cbind") %:%
-      foreach(t = 1:length(years), .combine = "rbind") %do% {
-        lag0 <- filter(dat, site_id == sites2[i], season == years[t]) %>% 
-          select(num_range(paste(var_names[v], ".", sep = ""), 1:12)) %>%
-          as.matrix()
-        
-        res <- c(mean(c(lag0[1:3])), mean(lag0[4:5]), mean(lag0[6:7]), mean(lag0[8:12]))
-        names(res) <- paste(var_names[v], c("nonbreed", "arrival", "incubation", "rearing"), sep = "_")
-        
-        return(res)
-      }
-    
-    m2 <- data.frame(site_id = rep(sites2[i], length(years)), season = years, m)
-    rownames(m2) <- NULL
-    
-    return(m2)
-    
-  }
-  
-  stopCluster(cl)
-  
-  return(res)
-}
-
-var_names <- c("aice", "wind", "hmxl", "zooc", "temp", "phtc")
-
-env_season_breed <- summarise_seasons(env_breed, var_names = var_names)
-env_season_nonbreed <- summarise_seasons(env_nonbreed, var_names = var_names)
-
-# Combine relevant seasons
-data_empe <- select(env_season_breed, -contains("_nonbreed")) %>%
-  left_join(select(env_season_nonbreed, site_id, season, contains("_nonbreed")), 
-            by = c("site_id", "season"))
+data_empe <- left_join(env_breed, env_nonbreed, by = by_col)
 
 saveRDS(data_empe, file = "data_env_empe2.rds")
 
