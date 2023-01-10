@@ -20,15 +20,16 @@ poly_nonbreed <- readRDS("data_poly_850km_empe.rds")
 
 # Transform netcdf to raster ----------------------------------------------
 
+# Polynya
 ncin <- ncdf4::nc_open("SSMI.CDR.85%thresh.polynya2_sh.197901-202012.nc")
 
-z <- ncdf4::ncvar_get(ncin, "polynyas", verbose = FALSE)
+z <- ncdf4::ncvar_get(ncin, "polynyas", start =  c(1,7,1), verbose = FALSE)
 
-lon_1d <- ncdf4::ncvar_get(ncin, "tlon1d", count = -1)
+lon_1d <- ncdf4::ncvar_get(ncin, "tlon1d")
 # This conversion of lon ensures MAPPPED sites and rasters overlap
 lon_1d <- sapply(lon_1d, function(x) ifelse(x>180, (x - 360), x))
 
-lat_1d <- c(ncdf4::ncvar_get(ncin, "tlat1d", count = 70, verbose = FALSE))
+lat_1d <- c(ncdf4::ncvar_get(ncin, "tlat1d", start = 7, verbose = FALSE))
 
 lon_mat <- foreach(i = 1:length(lat_1d), .combine = "cbind") %do% lon_1d
 lat_mat <- foreach(i = 1:length(lon_1d), .combine = "rbind") %do% lat_1d
@@ -89,7 +90,8 @@ area_sum_nonbreed <- raster::extract(r_area,
                                      na.rm = T,
                                      sp = F)
 
-# Extract env values at sites ---------------------------------------------
+
+# Exract polynya area -----------------------------------------------------
 
 # Functions
 get_area <- function(env, area, poly, area_sum, first_year, last_year, var_name, season_names) {
@@ -189,3 +191,4 @@ pnya_nonbreed <- get_area(env = r_pnya == 1 | r_pnya == 2,
 data_apnya <- left_join(pnya_nonbreed, pnya_breed, by = c("site_id", "year"))
 
 saveRDS(data_apnya, "data_apnya.rds")
+
