@@ -133,6 +133,16 @@ r_zooc <- transform_to_raster(file_name = file_name,
                               integral = T, 
                               depth_count = 10)
 
+file_name <- "NCAR_forced_NetCDF/g.e22.GOMIPECOIAF_JRA-1p4-2018.TL319_g17.4p2z.001branch.pop.h.mesozooC_zint_100m_2.195801-202112.nc"
+r_meso <- transform_to_raster(file_name = file_name,
+                              lat_name = "TLAT",
+                              lon_name = "TLONG",
+                              var_name = "mesozooC_zint_100m_2",
+                              nyears = length(1958:2021),
+                              depth = F, 
+                              integral = F)
+
+
 # Grid area raster
 # Area raster is used to calculate either total area (or concentration) of a variable within a polygon
 # or to take the weighted mean of a variable
@@ -359,6 +369,24 @@ temp_nonbreed <- extract_env(env = r_temp,
                              var_name = "temp",
                              season_names = "nonbreed")
 
+meso_breed <- extract_env(env = r_meso, 
+                          area = r_area, 
+                          poly = poly_breed, 
+                          area_sum = area_sum_breed, 
+                          first_year = 1958, 
+                          last_year = 2021, 
+                          var_name = "meso",
+                          season_names = breed)
+
+meso_nonbreed <- extract_env(env = r_meso, 
+                             area = r_area, 
+                             poly = poly_nonbreed, 
+                             area_sum = area_sum_nonbreed, 
+                             first_year = 1958, 
+                             last_year = 2021, 
+                             var_name = "meso",
+                             season_names = "nonbreed")
+
 # Combine data
 by_col <- c("site_id", "year")
 
@@ -366,17 +394,19 @@ env_breed <- left_join(ice_breed, wind_breed, by = by_col) %>%
   left_join(hmxl_breed, by = by_col) %>%
   left_join(zooc_breed, by = by_col) %>%
   left_join(temp_breed, by = by_col) %>%
-  left_join(phtc_breed, by = by_col)
+  left_join(phtc_breed, by = by_col) %>%
+  left_join(meso_breed, by = by_col)
 
 env_nonbreed <- left_join(ice_nonbreed, wind_nonbreed, by = by_col) %>%
   left_join(hmxl_nonbreed, by = by_col) %>%
   left_join(zooc_nonbreed, by = by_col) %>%
   left_join(temp_nonbreed, by = by_col) %>%
-  left_join(phtc_nonbreed, by = by_col)
+  left_join(phtc_nonbreed, by = by_col) %>%
+  left_join(meso_nonbreed, by = by_col)
 
 data_empe <- left_join(env_breed, env_nonbreed, by = by_col)
 
-saveRDS(data_empe, file = "data_env_empe2.rds")
+saveRDS(data_empe, file = "data_env_empe.rds")
 
 # Create csv for SIC
 data_aice <- select(data_empe, site_id, season, aice_nonbreed, aice_arrival, aice_incubation, aice_rearing)
