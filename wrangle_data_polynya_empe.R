@@ -15,7 +15,7 @@ empe_sites2 <- st_sf(site_id = empe_sites[,1], new_n = empe_sites[,4], geometry 
 st_crs(empe_sites2) <- 3031
 
 poly_breed <- readRDS("data_poly_500km_empe.rds")
-poly_nonbreed <- readRDS("data_poly_850km_empe.rds")
+poly_nonbreed <- readRDS("data_poly_750km_empe.rds")
 
 
 # Transform netcdf to raster ----------------------------------------------

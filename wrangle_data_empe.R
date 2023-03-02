@@ -11,7 +11,7 @@ source("functions.R")
 empe_sites <- read.csv("empe_sites_new.csv")
 
 poly_breed <- readRDS("data_poly_500km_empe.rds")
-poly_nonbreed <- readRDS("data_poly_850km_empe.rds")
+poly_nonbreed <- readRDS("data_poly_750km_empe.rds")
 
 
 # Transform netcdf to raster ----------------------------------------------
